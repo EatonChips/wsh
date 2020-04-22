@@ -178,9 +178,8 @@ func main() {
 		// case strings.HasPrefix(line, "get "):
 		// 	fmt.Println("Download file")
 		// 	fmt.Println(line)
-		// case strings.HasPrefix(line, "put "):
-		// 	fmt.Println("Upload file")
-		// 	fmt.Println(line)
+		// case strings.HasPrefix(line, "clear"):
+		// 	readline.ClearScreen()
 		case line == "exit":
 			l.Close()
 		default:
@@ -296,9 +295,14 @@ func sendRequest(cmd string) (string, error) {
 
 	// If downloading file...
 	if strings.HasPrefix(cmd, "get ") {
-		if resp.StatusCode != 200 {
-			response, _ := ioutil.ReadAll(resp.Body)
-			return "", errors.New(string(response))
+		if resp.StatusCode == 404 {
+			return "", errors.New("file not found")
+		} else if resp.StatusCode != 200 {
+			fmt.Println(resp.StatusCode)
+			rBytes, _ := ioutil.ReadAll(resp.Body)
+			response := string(rBytes)
+			response = strings.Trim(response, " \n")
+			return "", errors.New(response)
 		}
 
 		c := strings.Fields(cmd)
@@ -323,8 +327,6 @@ func sendRequest(cmd string) (string, error) {
 		// return string(b), err
 
 		io.Copy(outFile, resp.Body)
-
-		fmt.Println(resp.StatusCode)
 
 		return fmt.Sprintf("%s downloaded to %s.\n", fileName, destPath), nil
 	}

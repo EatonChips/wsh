@@ -2,16 +2,22 @@
 
 Command line interface for web shells.
 
-## TODO
+## TODO - wsgen
 
-[] encoding/encrypting (base64, xor, aes)
-[] asp templates
 [] test whitelist ip sources
-[] add cidr to whitelist
-[] fix jsp / lang specific minification
-[] password get/post body parameters
-[] setup php to use multipart form
-[] on download, background the download to goroutine 
+[] test long/short params
+[] test long/short headers
+[] test encoding options
+[] test download / upload logic
+[] change asp variables (base64Var, ADODB.Stream, bin.base64Var)
+[] mark which variables in map are used in which language
+
+## TODO - wsh
+
+[] on download, background the download request to goroutine
+[] test download / upload logic
+[] fix flags (trimp ,trims)
+[] combine wsh and wsgen
 
 https://github.com/SecurityRiskAdvisors/cmd.jsp/blob/master/cmd_readable.jsp
 
@@ -43,7 +49,7 @@ go run main.go -X GET -url http://127.0.0.1:8080/shell.php -p cmd
 
 Catch asp error:
 
-``` asp
+```asp
 On Error Resume Next
 ... do something...
 If Err.Number <> 0 Then

