@@ -11,12 +11,13 @@ Command line interface for web shells.
 [] test download / upload logic
 [] change asp variables (base64Var, ADODB.Stream, bin.base64Var)
 [] mark which variables in map are used in which language
+[] shells should not display errors
 
 ## TODO - wsh
 
 [] on download, background the download request to goroutine
 [] test download / upload logic
-[] fix flags (trimp ,trims)
+[] fix flags (trimp, trims)
 [] combine wsh and wsgen
 
 https://github.com/SecurityRiskAdvisors/cmd.jsp/blob/master/cmd_readable.jsp
@@ -47,7 +48,11 @@ flag usage
 go run main.go -X GET -url http://127.0.0.1:8080/shell.php -p cmd
 ```
 
-Catch asp error:
+### Compile jsp to war
+
+jar -cvf filename.war index.jsp
+
+### Catch asp error:
 
 ```asp
 On Error Resume Next
