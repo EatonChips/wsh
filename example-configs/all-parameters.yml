@@ -1,0 +1,26 @@
+method: "GET"
+param: "cmd"
+# header: "User-Agent"
+whitelist:
+  - "127.0.0.1"
+  - "10.0.0.1"
+password: "S3cr3tP@ssw0rd"
+pass-param: "passwd"
+# pass-header: "X-Pass"
+xor-key: "S3cr3tK3y"
+# xor-param: "xorparam"
+xor-header: "Xor-Header"
+base64: false
+no-file: true
+minify: false
+template: templates/php.tml
+# timeout: 20
+ignore-ssl: true
+# prefix: "bash"
+trim-prefix: "<pre>"
+trim-suffix: "</pre>"
+headers:
+  - "Header-Key:Header-Value"
+  # - "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10.09; rv:70.0) Gecko/20101000 Firefox/70.0"
+parameters:
+  - "ParamName:ParamValue"

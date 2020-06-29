@@ -70,8 +70,8 @@ var generateCmd = &cobra.Command{
 	Long:    `Webshell generate`,
 	Run:     generate,
 	Args: func(cmd *cobra.Command, args []string) error {
-		if templateFile == "" && len(args) < 1 {
-			return errors.New("language or template is required")
+		if len(args) < 1 {
+			return errors.New("language is required")
 		}
 		return nil
 	},
@@ -82,37 +82,40 @@ func init() {
 
 	seededRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	generateCmd.Flags().StringVarP(&method, "method", "X", "GET", "HTTP method (GET,POST,PUT,PATCH,DELETE)")
-	viper.BindPFlag("method", generateCmd.Flags().Lookup("method"))
-	generateCmd.Flags().StringVarP(&cmdParam, "param", "p", "c", "Parameter for sending command")
-	viper.BindPFlag("param", generateCmd.Flags().Lookup("param"))
-	generateCmd.Flags().StringVar(&cmdHeader, "header", "", "Header for sending command")
-	viper.BindPFlag("header", generateCmd.Flags().Lookup("header"))
-	generateCmd.Flags().StringSliceVarP(&whitelist, "whitelist", "w", []string{}, "IP addresses to whitelist")
+	generateCmd.Flags().StringSliceP("whitelist", "w", []string{}, "IP addresses to whitelist")
 	viper.BindPFlag("whitelist", generateCmd.Flags().Lookup("whitelist"))
-	generateCmd.Flags().StringVar(&password, "pass", "", "Password protect shell")
+
+	generateCmd.Flags().String("pass", "", "Password protect shell")
 	viper.BindPFlag("password", generateCmd.Flags().Lookup("pass"))
-	generateCmd.Flags().StringVar(&passwordParam, "pass-param", "", "Parameter for sending password")
+
+	generateCmd.Flags().String("pass-param", "", "Parameter for sending password")
 	viper.BindPFlag("pass-param", generateCmd.Flags().Lookup("pass-param"))
-	generateCmd.Flags().StringVar(&passwordHeader, "pass-header", "", "Header for sending password")
+
+	generateCmd.Flags().String("pass-header", "", "Header for sending password")
 	viper.BindPFlag("pass-header", generateCmd.Flags().Lookup("pass-header"))
-	generateCmd.Flags().StringVar(&xorKey, "xor-key", "", "Key for xor encryption")
+
+	generateCmd.Flags().String("xor-key", "", "Key for xor encryption")
 	viper.BindPFlag("xor-key", generateCmd.Flags().Lookup("xor-key"))
-	generateCmd.Flags().StringVar(&xorParam, "xor-param", "", "Parameter for sending xor key")
+
+	generateCmd.Flags().String("xor-param", "", "Parameter for sending xor key")
 	viper.BindPFlag("xor-param", generateCmd.Flags().Lookup("xor-param"))
-	generateCmd.Flags().StringVar(&xorHeader, "xor-header", "", "Header for sending xor key")
+
+	generateCmd.Flags().String("xor-header", "", "Header for sending xor key")
 	viper.BindPFlag("xor-header", generateCmd.Flags().Lookup("xor-header"))
-	generateCmd.Flags().BoolVar(&b64, "b64", false, "Base64 encode shell")
-	viper.BindPFlag("base64", generateCmd.Flags().Lookup("b64"))
-	generateCmd.Flags().BoolVar(&noFileCapabilities, "no-file", false, "Disable file upload/download capabilities")
+
+	generateCmd.Flags().Bool("base64", false, "Base64 encode shell")
+	viper.BindPFlag("base64", generateCmd.Flags().Lookup("base64"))
+
+	generateCmd.Flags().Bool("no-file", false, "Disable file upload/download capabilities")
 	viper.BindPFlag("no-file", generateCmd.Flags().Lookup("no-file"))
-	generateCmd.Flags().BoolVar(&minify, "min", false, "Minify webshell code")
-	viper.BindPFlag("min", generateCmd.Flags().Lookup("min"))
-	generateCmd.Flags().StringVarP(&outFile, "outfile", "o", "", "Output file")
-	viper.BindPFlag("outfile", generateCmd.Flags().Lookup("outfile"))
-	generateCmd.Flags().StringVarP(&templateFile, "template-file", "t", "", "Webshell template file")
+
+	generateCmd.Flags().Bool("minify", false, "Minify webshell code")
+	viper.BindPFlag("minify", generateCmd.Flags().Lookup("minify"))
+
+	generateCmd.Flags().StringP("template", "t", "", "Webshell template file")
 	viper.BindPFlag("template", generateCmd.Flags().Lookup("template"))
 
+	generateCmd.Flags().StringVarP(&outFile, "outfile", "o", "", "Output file")
 }
 
 func generate(cmd *cobra.Command, args []string) {
@@ -159,22 +162,29 @@ func generate(cmd *cobra.Command, args []string) {
 		"ii":        genVarName(vNameMin, vNameMax), //php
 		"msxmlVar":  genVarName(vNameMin, vNameMax), //asp
 		"base64Var": genVarName(vNameMin, vNameMax), //asp
+
+		"var0": genVarName(vNameMin, vNameMax), //future shells
+		"var1": genVarName(vNameMin, vNameMax), //future shells
+		"var2": genVarName(vNameMin, vNameMax), //future shells
+		"var3": genVarName(vNameMin, vNameMax), //future shells
+		"var4": genVarName(vNameMin, vNameMax), //future shells
+		"var5": genVarName(vNameMin, vNameMax), //future shells
+		"var6": genVarName(vNameMin, vNameMax), //future shells
+		"var7": genVarName(vNameMin, vNameMax), //future shells
+		"var8": genVarName(vNameMin, vNameMax), //future shells
+		"var9": genVarName(vNameMin, vNameMax), //future shells
 	}
 
 	d := shellData{
-		Method:         method,
-		CmdParam:       cmdParam,
-		CmdHeader:      cmdHeader,
-		Password:       password,
-		PasswordParam:  passwordParam,
-		PasswordHeader: passwordHeader,
-		XorKey:         xorKey,
-		XorParam:       xorParam,
-		XorHeader:      xorHeader,
-		// EncMethod:        encMethod,
-		// EncParam:         encParam,
-		// EncHeader:        encHeader,
-		// EncKey:           encKey,
+		Method:           method,
+		CmdParam:         cmdParam,
+		CmdHeader:        cmdHeader,
+		Password:         password,
+		PasswordParam:    passwordParam,
+		PasswordHeader:   passwordHeader,
+		XorKey:           xorKey,
+		XorParam:         xorParam,
+		XorHeader:        xorHeader,
 		FileCapabilities: !noFileCapabilities,
 		V:                vNames,
 	}
@@ -195,10 +205,7 @@ func generate(cmd *cobra.Command, args []string) {
 
 	// If using password, calculate md5 hash
 	if password != "" {
-		if passwordParam == cmdParam {
-			fmt.Println("Command parameter and password parameter must be unique")
-			os.Exit(1)
-		} else if passwordParam == "" && passwordHeader == "" {
+		if passwordParam == "" && passwordHeader == "" {
 			fmt.Println("Password parameter or header required")
 			os.Exit(1)
 		}
@@ -215,12 +222,18 @@ func generate(cmd *cobra.Command, args []string) {
 	}
 
 	// Load template
-	var tmpl *template.Template
+	tmpl := template.New("shell")
 	var err error
 	if templateFile != "" {
 		tmpl, err = template.ParseFiles(templateFile)
 	} else {
-		tmpl, err = template.ParseFiles(fmt.Sprintf("templates/%s.tml", lang))
+		if lang == "php" {
+			tmpl, err = tmpl.Parse(phpTemplate)
+		} else if lang == "jsp" {
+			tmpl, err = tmpl.Parse(jspTemplate)
+		} else {
+			tmpl, err = tmpl.Parse(aspTemplate)
+		}
 	}
 	if err != nil {
 		fmt.Println(err)
@@ -239,6 +252,16 @@ func generate(cmd *cobra.Command, args []string) {
 	// Remove excessive new lines
 	r := regexp.MustCompile("[\n\n]{2,}")
 	code = r.ReplaceAllString(code, "\n")
+
+	// Minify code
+	if minify || b64 || xorKey != "" {
+		r := regexp.MustCompile("[ \n\n]{2,}")
+		code = r.ReplaceAllString(code, "\n")
+		if lang == "php" {
+			code = strings.ReplaceAll(code, "\n", "")
+			code = strings.ReplaceAll(code, " ", "")
+		}
+	}
 
 	// If encrypting or encoding
 	if xorKey != "" {
@@ -309,6 +332,7 @@ func genVarName(min, max int) string {
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	l := seededRand.Intn(max-min) + min
 	b := make([]byte, l)
+
 	for i := range b {
 		b[i] = charset[seededRand.Intn(len(charset))]
 	}

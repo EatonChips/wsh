@@ -17,7 +17,6 @@ import (
 	"github.com/chzyer/readline"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-
 	"github.com/spf13/viper"
 )
 
@@ -29,8 +28,11 @@ var (
 	headerFlags   []string
 	paramFlags    []string
 	timeout       int
-	configFile    string
 	ignoreSSL     bool
+	logFilename   string
+	configFile    string
+
+	logFile *os.File
 
 	prefix     string
 	trimPrefix string
@@ -71,22 +73,40 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.Flags().StringVar(&commandParam, "param", "", "Parameter for sending command")
-	rootCmd.Flags().StringVar(&commandHeader, "header", "", "Header for sending command")
-	rootCmd.Flags().StringVarP(&httpMethod, "method", "X", "GET", "HTTP method: GET, POST, PUT, PATCH, DELETE")
-	rootCmd.Flags().StringSliceVarP(&headerFlags, "headers", "H", []string{}, "HTTP request headers")
-	rootCmd.Flags().StringSliceVarP(&paramFlags, "params", "P", []string{}, "HTTP request parameters")
-	rootCmd.Flags().IntVar(&timeout, "timeout", 10, "Request timeout in seconds")
-	rootCmd.Flags().StringVar(&prefix, "prefix", "", "Command prefix: 'cmd /c', 'powershell.exe', 'bash'")
-	rootCmd.Flags().StringVar(&trimPrefix, "trimp", "", "Trim output prefix")
-	rootCmd.Flags().StringVar(&trimSuffix, "trims", "", "Trim output suffix")
-	rootCmd.Flags().BoolVarP(&ignoreSSL, "ignore-ssl", "k", false, "Ignore invalid certs")
-	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "Config file")
-	// viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
+	rootCmd.PersistentFlags().StringP("method", "X", "GET", "HTTP method: GET, POST, PUT, PATCH, DELETE")
+	viper.BindPFlag("method", rootCmd.PersistentFlags().Lookup("method"))
 
+	rootCmd.PersistentFlags().String("param", "", "Parameter for sending command")
+	viper.BindPFlag("param", rootCmd.PersistentFlags().Lookup("param"))
+
+	rootCmd.PersistentFlags().String("header", "", "Header for sending command")
+	viper.BindPFlag("header", rootCmd.PersistentFlags().Lookup("header"))
+
+	rootCmd.Flags().StringSliceP("headers", "H", []string{}, "HTTP request headers")
+	viper.BindPFlag("headers", rootCmd.Flags().Lookup("headers"))
+
+	rootCmd.Flags().StringSliceP("params", "P", []string{}, "HTTP request parameters")
+	viper.BindPFlag("parameters", rootCmd.Flags().Lookup("params"))
+
+	rootCmd.Flags().Int("timeout", 10, "Request timeout in seconds")
+	viper.BindPFlag("timeout", rootCmd.Flags().Lookup("timeout"))
+
+	rootCmd.Flags().String("prefix", "", "Prepend command: 'cmd /c', 'powershell.exe', 'bash'")
+	viper.BindPFlag("prefix", rootCmd.Flags().Lookup("prefix"))
+
+	rootCmd.Flags().String("trim-prefix", "", "Trim output prefix")
+	viper.BindPFlag("trim-prefix", rootCmd.Flags().Lookup("trim-prefix"))
+
+	rootCmd.Flags().String("trim-suffix", "", "Trim output suffix")
+	viper.BindPFlag("trim-suffix", rootCmd.Flags().Lookup("trim-suffix"))
+
+	rootCmd.Flags().BoolP("ignore-ssl", "k", false, "Ignore invalid certs")
+	viper.BindPFlag("ignore-ssl", rootCmd.Flags().Lookup("ignore-ssl"))
+
+	rootCmd.Flags().StringVar(&logFilename, "log", "", "Log file")
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "Config file")
 }
 
-// initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	if configFile != "" {
 		// Use config file from the flag.
@@ -95,37 +115,62 @@ func initConfig() {
 		// If a config file is found, read it in.
 		if err := viper.ReadInConfig(); err == nil {
 			fmt.Println("Using config file:", viper.ConfigFileUsed())
+		} else {
+			fmt.Printf("Unable to use config file: %s\n", err.Error())
 		}
 	}
+
+	// Connect flags
+	httpMethod = viper.GetString("method")
+	commandParam = viper.GetString("param")
+	commandHeader = viper.GetString("header")
+	headerFlags = viper.GetStringSlice("headers")
+	paramFlags = viper.GetStringSlice("parameters")
+	timeout = viper.GetInt("timeout")
+	prefix = viper.GetString("prefix")
+	trimPrefix = viper.GetString("trim-prefix")
+	trimSuffix = viper.GetString("trim-suffix")
+	ignoreSSL = viper.GetBool("ignore-ssl")
+
+	// Generate flags
+	method = viper.GetString("method")
+	cmdParam = viper.GetString("param")
+	cmdHeader = viper.GetString("header")
+	whitelist = viper.GetStringSlice("whitelist")
+	password = viper.GetString("password")
+	passwordParam = viper.GetString("pass-param")
+	passwordHeader = viper.GetString("pass-header")
+	xorKey = viper.GetString("xor-key")
+	xorParam = viper.GetString("xor-param")
+	xorHeader = viper.GetString("xor-header")
+	b64 = viper.GetBool("base64")
+	noFileCapabilities = viper.GetBool("no-file")
+	minify = viper.GetBool("minify")
+	templateFile = viper.GetString("template")
 }
 
 func interact(cmd *cobra.Command, args []string) {
-
 	endpoint = args[0]
 
 	if !strings.HasPrefix(strings.ToLower(endpoint), "http") {
 		endpoint = fmt.Sprintf("http://%s", endpoint)
 	}
 
-	// // Check for invalid http methods
-	// if httpMethod != "GET" && httpMethod != "POST" && httpMethod != "PUT" &&
-	// 	httpMethod != "PATCH" && httpMethod != "DELETE" {
-	// 	fmt.Println("Invalid HTTP httpMethod. Supported httpMethods are:")
-	// 	fmt.Println("\tGET, POST, PUT, PATCH, and DELETE")
-	// 	os.Exit(0)
-	// }
-
 	// Parse header flags
 	headers = make(map[string]string)
-	// fmt.Println(headerFlags)
 	for _, h := range headerFlags {
 		split := strings.Split(h, ":")
-		// fmt.Println(split[0])
 		if len(split) != 2 {
 			fmt.Printf("Invalid header: \"%s\"\n", h)
 			continue
 		}
 		headers[split[0]] = split[1]
+	}
+	if passwordHeader != "" {
+		headers[passwordHeader] = password
+	}
+	if xorHeader != "" {
+		headers[xorHeader] = xorKey
 	}
 
 	// Parse parameter flags
@@ -136,8 +181,24 @@ func interact(cmd *cobra.Command, args []string) {
 			fmt.Printf("Invalid parameter: \"%s\"\n", p)
 			continue
 		}
-
 		params[split[0]] = split[1]
+	}
+	if passwordParam != "" {
+		params[passwordParam] = password
+	}
+	if xorParam != "" {
+		params[xorParam] = xorKey
+	}
+
+	// Open logfile
+	if logFilename != "" {
+		f, err := os.OpenFile(logFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		fmt.Println("Logging to:", logFilename)
+		logFile = f
+		defer logFile.Close()
 	}
 
 	// Create http client
@@ -190,17 +251,14 @@ func interact(cmd *cobra.Command, args []string) {
 		}
 
 		switch {
-		// case strings.HasPrefix(line, "get "):
-		// 	fmt.Println("Download file")
-		// 	fmt.Println(line)
-		// case strings.HasPrefix(line, "clear"):
-		// 	readline.ClearScreen()
+		case line == "clear":
+			readline.ClearScreen(os.Stdout)
 		case line == "exit":
 			os.Exit(0)
 		case line == "quit":
 			os.Exit(0)
 		case line == "help":
-			printShelp()
+			printHelp()
 		default:
 			// Send http request
 			out, err := sendRequest(line)
@@ -223,17 +281,30 @@ func interact(cmd *cobra.Command, args []string) {
 				}
 			}
 
-			// Print output
+			// Trim excess space
 			out = strings.TrimSpace(out)
+
+			// Log output
+			if logFilename != "" {
+				p := time.Now().Format("01/02/2006 15:04:05")
+				p = fmt.Sprintf("[%s] %s> %s\n", p, host, line)
+				p = fmt.Sprintf("%s%s\n\n", p, out)
+				if _, err := logFile.WriteString(p); err != nil {
+					fmt.Println(err)
+				}
+			}
+
+			// Print output
 			fmt.Println(out)
 		}
 	}
 }
 
 // Print interactive shell help
-func printShelp() {
+func printHelp() {
 	fmt.Println("get <remote filepath> [local filepath]	Download file")
 	fmt.Println("put <local filepath> [remote filepath]	Upload file")
+	fmt.Println("clear																	Clear shell screen")
 	fmt.Println("exit                                  	Exits shell")
 }
 
@@ -324,7 +395,6 @@ func sendRequest(cmd string) (string, error) {
 	// Parse headers
 	for k, v := range headers {
 		req.Header.Add(k, v)
-		fmt.Println(k, v)
 	}
 
 	// Send request
