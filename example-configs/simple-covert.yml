@@ -1,0 +1,9 @@
+method: "POST"
+header: "User-Agent"
+whitelist:
+  - "127.0.0.1"
+password: "S3cr3tP@ssw0rd!"
+pass-header: "Accept-Language"
+no-file: true
+ignore-ssl: true
+template: templates/covert-php.tml

