@@ -1,6 +1,6 @@
 # wsh
 
-wsh (pronounced woosh) is a web shell generator and command line interface. This started off as just an http client since interacting with webshells is a pain. There's a form, to send a command you have to type in an input box and press a button. I wanted something that fits into my work-flow better that ran in the terminal. Thus wsh was born.
+wsh (pronounced woosh) is a web shell generator and command line interface. This started off as just an http client since interacting with webshells is a pain. There's a form, to send a command you have to type in an input box and press a button. I wanted something that fits into my workflow better and ran in the terminal. Thus wsh was born.
 
 The client features command history, logging, and can be configured to interact with a previously deployed webshell with a form/button. The generator creates webshells in php, asp, and jsp. They are generated with random variables, so each will have a unique hash. They can be configured with a whitelist, passwords, and allow commands to be sent over custom headers and parameters. The generator and client can be configured through command line flags or configuration files to allow for saving a setup that works for you without doing what I call the "--help" dance. Once configured, the client and generator use the same config file.
 
@@ -73,7 +73,6 @@ $ wsh generate php --param cmd --no-file -o shell.php
 Created shell at shell.php.
 
 $ wsh 127.0.0.1:8080/shell.php --param cmd
-
 ```
 
 ```php

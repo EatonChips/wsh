@@ -314,7 +314,7 @@ func sendRequest(cmd string) (string, error) {
 	var body io.Reader
 
 	// Prepend prefix
-	if prefix != "" {
+	if prefix != "" && !strings.HasPrefix(cmd, "get") && !strings.HasPrefix(cmd, "put") {
 		cmd = fmt.Sprintf("%s %s", strings.TrimSpace(prefix), cmd)
 	}
 

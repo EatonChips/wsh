@@ -62,7 +62,7 @@
       echo {{ index .V "destPath" }}.' already exists';
       die;
     }
-    file_put_contents({{ index .V "destPath" }}, file_get_contents('php://input'));
+    file_put_contents({{ index .V "destPath" }}, base64_decode($_REQUEST['f']));
     echo 'Uploaded '.{{ index .V "filePath" }}.' to '.{{ index .V "destPath" }};
     die;
   }
