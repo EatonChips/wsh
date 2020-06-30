@@ -304,7 +304,7 @@ func interact(cmd *cobra.Command, args []string) {
 func printHelp() {
 	fmt.Println("get <remote filepath> [local filepath]	Download file")
 	fmt.Println("put <local filepath> [remote filepath]	Upload file")
-	fmt.Println("clear																	Clear shell screen")
+	fmt.Println("clear                                  	Clear screen")
 	fmt.Println("exit                                  	Exits shell")
 }
 

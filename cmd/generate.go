@@ -121,6 +121,11 @@ func init() {
 func generate(cmd *cobra.Command, args []string) {
 	lang = args[0]
 
+	if cmdParam == "" && cmdHeader == "" {
+		fmt.Println("--param or --header required.")
+		os.Exit(1)
+	}
+
 	vNameMin := 3
 	vNameMax := 7
 	vNames := map[string]string{
